@@ -6,6 +6,12 @@ const { verifyAdmin } = require('../middlewares/admin');
 // Create a new book
 router.post('/', verifyAdmin, bookController.createBook);
 
+// Create a new book
+router.post('/create/many', verifyAdmin, bookController.createManyBooks);
+
+// Get all books
+router.get('/recent', bookController.getRecentBooks);
+
 // Get all books
 router.get('/', bookController.getAllBooks);
 
@@ -17,5 +23,6 @@ router.put('/:id', verifyAdmin, bookController.updateBook);
 
 // Delete a book
 router.delete('/:id', verifyAdmin, bookController.deleteBook);
+router.delete('/delete/deleteAll', verifyAdmin, bookController.deleteAllBooks);
 
 module.exports = router;
