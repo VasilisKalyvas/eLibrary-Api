@@ -108,14 +108,13 @@ const buildBookQueryOptions = (queryParams) => {
 
   const filters = {};
 
-  if (typeof(authorId) === 'object') {
-    authorId?.map((item) => (
-      filters.authorId = parseInt(item)
-    ))
-  } else if(typeof(authorId) === 'string'){
-    filters.authorId = parseInt(authorId)
+  if (authorId) {
+    if (Array.isArray(authorId)) {
+      filters.authorId = { in: authorId.map((id) => parseInt(id)) };
+    } else if (typeof authorId === 'string') {
+      filters.authorId = parseInt(authorId);
+    }
   }
-
   if (CategoryId) {
     // Assuming a direct relationship between Book and Category
     filters.categories = { some: { categoryId: parseInt(CategoryId) } };
