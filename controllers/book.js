@@ -108,7 +108,6 @@ const buildBookQueryOptions = (queryParams) => {
 
   const filters = {};
 
-  console.log(queryParams)
   if (typeof(authorId) === 'object') {
     authorId?.map((item) => (
       filters.authorId = parseInt(item)
