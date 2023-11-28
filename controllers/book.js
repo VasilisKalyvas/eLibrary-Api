@@ -99,7 +99,7 @@ const buildBookQueryOptions = (queryParams) => {
     page = 1,
     pageSize = 10,
     authorId,
-    categoryId,
+    CategoryId,
     search,
     sortBy,
     sortOrder = 'asc',
@@ -107,21 +107,22 @@ const buildBookQueryOptions = (queryParams) => {
   } = queryParams;
 
   const filters = {};
-  if (authorId) {
-    filters.authorId = parseInt(authorId);
-  }
-  if (categoryId) {
-    filters.categories = { some: { id: parseInt(categoryId) } };
+
+  console.log(queryParams)
+  if (typeof(authorId) === 'object') {
+    authorId?.map((item) => (
+      filters.authorId = parseInt(item)
+    ))
+  } else if(typeof(authorId) === 'string'){
+    filters.authorId = parseInt(authorId)
   }
 
-  if (isAvailable !== undefined) {
-    filters.isAvailable =
-      isAvailable.toLowerCase() === 'true'
-        ? true
-        : isAvailable.toLowerCase() === 'false'
-        ? false
-        : isAvailable; 
+  if (CategoryId) {
+    // Assuming a direct relationship between Book and Category
+    filters.categories = { some: { categoryId: parseInt(CategoryId) } };
   }
+
+  filters.isAvailable = isAvailable.toLowerCase() === 'true';
 
   if (search) {
     filters.OR = [
@@ -138,9 +139,9 @@ const buildBookQueryOptions = (queryParams) => {
     include: {
       author: true,
       categories: {
-        include: {
-          Category: true,
-        },
+        include:{
+          Category: true
+        }
       },
     },
     where: filters,
@@ -172,6 +173,7 @@ const getAllBooks = async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
+
 
 // Get a specific book by ID
 const getBookById = async (req, res) => {

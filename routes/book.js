@@ -9,7 +9,7 @@ router.post('/', verifyAdmin, bookController.createBook);
 // Create a new book
 router.post('/create/many', verifyAdmin, bookController.createManyBooks);
 
-// Get all books
+// Get recent all books
 router.get('/recent', bookController.getRecentBooks);
 
 // Get all books
