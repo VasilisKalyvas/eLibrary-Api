@@ -126,6 +126,7 @@ const buildBookQueryOptions = (queryParams) => {
     filters.OR = [
       { title: { contains: search } },
       { description: { contains: search } },
+      { author: {name: { contains: search }} },
     ];
   }
 

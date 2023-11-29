@@ -21,7 +21,11 @@ const register = async (req, res) => {
       },
     });
 
-    res.json({ message: 'User registered successfully', user });
+    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
+      expiresIn: '1h',
+    });
+
+    res.json({ message: 'User registered successfully',token, user: {id: user.id, username: user.username, email: user.email, role: user.role} });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
@@ -51,7 +55,7 @@ const login = async (req, res) => {
       expiresIn: '1h',
     });
 
-    res.json({ message: 'Login successful', token });
+    res.json({ message: 'Login successful', token, user: {id: user.id, username: user.username, email: user.email, role: user.role} });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
