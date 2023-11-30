@@ -259,7 +259,6 @@ const deleteAllBooks = async (req, res) => {
 const rentBook = async (req, res) => {
   try {
     const { userId, bookId, from, until } = req.body
-    console.log('test')
     if(!from) {
       return res.status(404).json({ error: 'Missing from!' });
     }
