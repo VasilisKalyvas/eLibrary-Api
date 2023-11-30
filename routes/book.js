@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bookController = require('../controllers/book');
 const { verifyAdmin } = require('../middlewares/admin');
+const { verifyAuth } = require('../middlewares/auth');
 
 // Create a new book
 router.post('/', verifyAdmin, bookController.createBook);
@@ -24,5 +25,8 @@ router.put('/:id', verifyAdmin, bookController.updateBook);
 // Delete a book
 router.delete('/:id', verifyAdmin, bookController.deleteBook);
 router.delete('/delete/deleteAll', verifyAdmin, bookController.deleteAllBooks);
+
+// Rent a book 
+router.post('/book/rent', verifyAuth, bookController.rentBook)
 
 module.exports = router;

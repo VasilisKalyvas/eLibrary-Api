@@ -92,7 +92,6 @@ const getRecentBooks = async (req, res) => {
   }
 };
 
-
 // Get all books
 const buildBookQueryOptions = (queryParams) => {
   const {
@@ -103,7 +102,6 @@ const buildBookQueryOptions = (queryParams) => {
     search,
     sortBy,
     sortOrder = 'asc',
-    isAvailable = 'true'
   } = queryParams;
 
   const filters = {};
@@ -119,8 +117,6 @@ const buildBookQueryOptions = (queryParams) => {
     // Assuming a direct relationship between Book and Category
     filters.categories = { some: { categoryId: parseInt(CategoryId) } };
   }
-
-  filters.isAvailable = isAvailable.toLowerCase() === 'true';
 
   if (search) {
     filters.OR = [
@@ -142,6 +138,12 @@ const buildBookQueryOptions = (queryParams) => {
           Category: true
         }
       },
+      rents: {
+        include: {
+          user: true
+        }
+      },
+      rendedBy:true,
     },
     where: filters,
     orderBy,
@@ -173,7 +175,6 @@ const getAllBooks = async (req, res) => {
   }
 };
 
-
 // Get a specific book by ID
 const getBookById = async (req, res) => {
   try {
@@ -183,7 +184,13 @@ const getBookById = async (req, res) => {
       where: { id: bookId },
       include: {
         author: true,
-        categories: true
+        categories: true,
+        rents: {
+          include: {
+            user: true
+          }
+        },
+        rendedBy:true,
       },
     });
 
@@ -249,6 +256,81 @@ const deleteAllBooks = async (req, res) => {
   }
 };
 
+const rentBook = async (req, res) => {
+  try {
+    const { userId, bookId, from, until } = req.body
+    console.log('test')
+    if(!from) {
+      return res.status(404).json({ error: 'Missing from!' });
+    }
+
+    if(!until) {
+      return res.status(404).json({ error: 'Missing until!' });
+    }
+
+    //Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+      include: {
+        rents: {
+          include: {
+            book: true
+          }
+        },
+      },
+    });
+
+    if(!user){
+      return res.status(404).json({ error: 'User does not exist!' });
+    }
+
+    //Check if user exists
+    const book = await prisma.book.findUnique({
+      where: { id: parseInt(bookId) },
+      include: {
+        author: true,
+        categories: true
+      },
+    });
+
+    if(!book){
+      return res.status(404).json({ error: 'Book not Found' });
+    }
+
+    if(book && !book?.isAvailable) {
+      return res.status(404).json({ error: 'Book not Available' });
+    }
+
+    if(book && book.rentedById === parseInt(userId)) {
+      return res.status(404).json({ error: 'Book already rended by user' });
+    }
+
+    const rent = await prisma.rent.create({
+      data: {
+        userId: parseInt(userId), 
+        bookId: parseInt(bookId), 
+        from, 
+        until,
+        status: 'test'
+      },
+    });
+
+    if(rent){
+      await prisma.book.update({
+        where: { id: parseInt(bookId) },
+        data: {
+          isAvailable: false,
+          rentedById: parseInt(userId)
+        },
+      });
+    }
+
+    res.json({data: rent });
+  } catch (error) {
+    console.log(error)
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
 
 module.exports = {
   createBook,
@@ -258,5 +340,6 @@ module.exports = {
   deleteBook,
   getRecentBooks,
   createManyBooks,
-  deleteAllBooks
+  deleteAllBooks,
+  rentBook
 };
