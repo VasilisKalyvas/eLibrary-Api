@@ -29,4 +29,7 @@ router.delete('/delete/deleteAll', verifyAdmin, bookController.deleteAllBooks);
 // Rent a book 
 router.post('/book/rent', verifyAuth, bookController.rentBook)
 
+// Return a book 
+router.post('/book/return', verifyAdmin, bookController.returnBook)
+
 module.exports = router;

@@ -310,7 +310,7 @@ const rentBook = async (req, res) => {
         bookId: parseInt(bookId), 
         from, 
         until,
-        status: 'test'
+        status: 'rent'
       },
     });
 
@@ -331,6 +331,68 @@ const rentBook = async (req, res) => {
   }
 }
 
+const returnBook = async (req, res) => {
+  try {
+    const { userId, bookId } = req.body;
+
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(userId) },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User does not exist!' });
+    }
+
+    // Check if book exists
+    const book = await prisma.book.findUnique({
+      where: { id: parseInt(bookId) },
+    });
+
+    if (!book) {
+      return res.status(404).json({ error: 'Book not found' });
+    }
+
+    // Check if the book is rented by the user
+    if (book.rentedById !== parseInt(userId)) {
+      return res.status(404).json({ error: 'Book not rented by user' });
+    }
+
+    // Find the active rent record for the book and user
+    const activeRent = await prisma.rent.findFirst({
+      where: {
+        userId: parseInt(userId),
+        bookId: parseInt(bookId),
+        status: 'rent', // Update this based on your actual status
+      },
+    });
+
+    if (!activeRent) {
+      return res.status(404).json({ error: 'No active rent found for the user and book' });
+    }
+
+    // Update the rent record status to indicate the book has been returned
+    const updatedRent = await prisma.rent.update({
+      where: { id: activeRent.id },
+      data: { status: 'returned' }, // Update this based on your actual status
+    });
+
+    // Update the book to make it available again
+    await prisma.book.update({
+      where: { id: parseInt(bookId) },
+      data: {
+        isAvailable: true,
+        rentedById: null,
+      },
+    });
+
+    res.json({ data: updatedRent });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
+
 module.exports = {
   createBook,
   getAllBooks,
@@ -340,5 +402,6 @@ module.exports = {
   getRecentBooks,
   createManyBooks,
   deleteAllBooks,
-  rentBook
+  rentBook,
+  returnBook
 };
