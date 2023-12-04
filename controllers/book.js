@@ -300,10 +300,6 @@ const rentBook = async (req, res) => {
       return res.status(404).json({ error: 'Book not Available' });
     }
 
-    if(book && book.rentedById === parseInt(userId)) {
-      return res.status(404).json({ error: 'Book already rended by user' });
-    }
-
     const rent = await prisma.rent.create({
       data: {
         userId: parseInt(userId), 
@@ -404,6 +400,14 @@ const deleteRent = async (req, res) => {
       },
     });
 
+    await prisma.book.update({
+      where: {
+        id: deletedRent?.bookId
+      },
+      data: {
+        isAvailable: true
+      }
+    })
     // Send a success response
     res.json({ message: 'Rent deleted successfully', deletedRent });
   } catch (error) {
@@ -424,5 +428,5 @@ module.exports = {
   deleteAllBooks,
   rentBook,
   returnBook,
-  deleteRent
+  deleteRent,
 };

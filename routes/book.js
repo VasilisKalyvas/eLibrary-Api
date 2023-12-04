@@ -32,6 +32,7 @@ router.post('/book/rent', verifyAuth, bookController.rentBook)
 // Return a book 
 router.post('/book/return', verifyAdmin, bookController.returnBook)
 
+//Delete rent
 router.delete('/delete/rent/:id', verifyAdmin, bookController.deleteRent)
 
 module.exports = router;
