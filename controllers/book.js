@@ -393,6 +393,26 @@ const returnBook = async (req, res) => {
   }
 };
 
+const deleteRent = async (req, res) => {
+  const rentId = parseInt(req.params.id);
+
+  try {
+    // Use Prisma to delete the rent by ID
+    const deletedRent = await prisma.rent.delete({
+      where: {
+        id: rentId,
+      },
+    });
+
+    // Send a success response
+    res.json({ message: 'Rent deleted successfully', deletedRent });
+  } catch (error) {
+    // Handle errors
+    console.error('Error deleting rent:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 module.exports = {
   createBook,
   getAllBooks,
@@ -403,5 +423,6 @@ module.exports = {
   createManyBooks,
   deleteAllBooks,
   rentBook,
-  returnBook
+  returnBook,
+  deleteRent
 };
