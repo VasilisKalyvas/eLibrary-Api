@@ -35,4 +35,7 @@ router.post('/book/return', verifyAdmin, bookController.returnBook)
 //Delete rent
 router.delete('/delete/rent/:id', verifyAdmin, bookController.deleteRent)
 
+//Update status of rent
+router.put('/update/rent/status/:id', verifyAdmin, bookController.updateRentStatus)
+
 module.exports = router;

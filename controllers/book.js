@@ -143,7 +143,12 @@ const buildBookQueryOptions = (queryParams) => {
           user: true
         }
       },
-      rendedBy:true,
+      rendedBy: true,
+      activeRent: {
+        include: {
+          user: true
+        }
+      }
     },
     where: filters,
     orderBy,
@@ -191,6 +196,11 @@ const getBookById = async (req, res) => {
           }
         },
         rendedBy:true,
+        activeRent: {
+          include: {
+            user: true
+          }
+        }
       },
     });
 
@@ -258,74 +268,74 @@ const deleteAllBooks = async (req, res) => {
 
 const rentBook = async (req, res) => {
   try {
-    const { userId, bookId, from, until } = req.body
-    if(!from) {
-      return res.status(404).json({ error: 'Missing from!' });
+    const { userId, bookId, from, until } = req.body;
+
+    if (!from || !until) {
+      return res.status(400).json({ error: 'Missing from or until' });
     }
 
-    if(!until) {
-      return res.status(404).json({ error: 'Missing until!' });
-    }
-
-    //Check if user exists
     const user = await prisma.user.findUnique({
       where: { id: parseInt(userId) },
       include: {
         rents: {
           include: {
-            book: true
-          }
+            book: true,
+          },
+          orderBy: { createdAt: 'desc' }, // Order rents by creation date in descending order
         },
       },
     });
 
-    if(!user){
+    if (!user) {
       return res.status(404).json({ error: 'User does not exist!' });
     }
 
-    //Check if user exists
     const book = await prisma.book.findUnique({
       where: { id: parseInt(bookId) },
-      include: {
-        author: true,
-        categories: true
-      },
     });
 
-    if(!book){
-      return res.status(404).json({ error: 'Book not Found' });
+    if (!book) {
+      return res.status(404).json({ error: 'Book not found' });
     }
 
-    if(book && !book?.isAvailable) {
-      return res.status(404).json({ error: 'Book not Available' });
+    // Check if the most recent rent for the book is in "returned" status
+    const mostRecentRent = user.rents[0];
+
+    if (mostRecentRent && mostRecentRent.bookId === book.id && mostRecentRent.status === 'returned') {
+      // The book was previously rented and returned, but we allow re-renting
+      console.log('Book can be rented again');
+    } else if (!book.isAvailable) {
+      console.log('Book is currently not available for rent');
+      return res.status(404).json({ error: 'Book is not available for rent' });
     }
 
+    // Create a new rent
     const rent = await prisma.rent.create({
       data: {
-        userId: parseInt(userId), 
-        bookId: parseInt(bookId), 
-        from, 
+        userId: parseInt(userId),
+        bookId: parseInt(bookId),
+        from,
         until,
-        status: 'rent'
+        status: 'rent',
       },
     });
 
-    if(rent){
-      await prisma.book.update({
-        where: { id: parseInt(bookId) },
-        data: {
-          isAvailable: false,
-          rentedById: parseInt(userId)
-        },
-      });
-    }
+    // Update book availability and association with the new rent
+    await prisma.book.update({
+      where: { id: parseInt(bookId) },
+      data: {
+        isAvailable: false,
+        rentedById: parseInt(userId),
+        activeRentId: rent.id,
+      },
+    });
 
-    res.json({data: rent });
+    res.json({ data: rent });
   } catch (error) {
-    console.log(error)
+    console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
-}
+};
 
 const returnBook = async (req, res) => {
   try {
@@ -343,6 +353,9 @@ const returnBook = async (req, res) => {
     // Check if book exists
     const book = await prisma.book.findUnique({
       where: { id: parseInt(bookId) },
+      include: {
+        activeRent: true
+      }
     });
 
     if (!book) {
@@ -352,25 +365,18 @@ const returnBook = async (req, res) => {
     // Check if the book is rented by the user
     if (book.rentedById !== parseInt(userId)) {
       return res.status(404).json({ error: 'Book not rented by user' });
-    }
+    };
 
-    // Find the active rent record for the book and user
-    const activeRent = await prisma.rent.findFirst({
-      where: {
-        userId: parseInt(userId),
-        bookId: parseInt(bookId),
-        status: 'rent', // Update this based on your actual status
-      },
-    });
+    const activeRentId = book.activeRentId
 
-    if (!activeRent) {
+    if (!activeRentId) {
       return res.status(404).json({ error: 'No active rent found for the user and book' });
     }
 
     // Update the rent record status to indicate the book has been returned
     const updatedRent = await prisma.rent.update({
-      where: { id: activeRent.id },
-      data: { status: 'returned' }, // Update this based on your actual status
+      where: { id: activeRentId },
+      data: { status: 'returned', }, // Update this based on your actual status
     });
 
     // Update the book to make it available again
@@ -379,6 +385,7 @@ const returnBook = async (req, res) => {
       data: {
         isAvailable: true,
         rentedById: null,
+        activeRentId: null,
       },
     });
 
@@ -405,7 +412,8 @@ const deleteRent = async (req, res) => {
         id: deletedRent?.bookId
       },
       data: {
-        isAvailable: true
+        isAvailable: true,
+        activeRentId: null
       }
     })
     // Send a success response
@@ -416,6 +424,64 @@ const deleteRent = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+const updateRentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if(!id) {
+      return res.status(404).json({ error: 'Id of Rent missing!' });
+    }
+    // Check if user exists
+    const rent = await prisma.rent.findUnique({
+      where: { id: parseInt(id) },
+    });
+
+    if (!rent) {
+      return res.status(404).json({ error: 'Rent does not exist!' });
+    }
+
+    if(rent?.status === 'rent') {
+      await prisma.rent.update({
+        where: { id: parseInt(id) },
+        data: { status: 'returned', },
+      });
+
+      await prisma.book.update({
+        where: { id: parseInt(rent?.activeBookId) },
+        data: {
+          isAvailable: true,
+          rentedById: null,
+          activeRentId: null,
+        },
+      });
+
+      res.json({ message: `Status of Rent: ${id} updated to Returned` });
+    } else {
+
+      await prisma.rent.update({
+        where: { id: parseInt(id) },
+        data: { 
+          status: 'rent', 
+          activeBookId: rent?.bookId
+        }, // Update this based on your actual status
+      });
+
+      await prisma.book.update({
+        where: { id: parseInt(rent?.bookId) },
+        data: {
+          isAvailable: false,
+          rentedById: parseInt(rent?.userId),
+          activeRentId: parseInt(rent?.id),
+        },
+      });
+
+      res.json({ message: `Status of Rent: ${id} updated to Rent` });
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+};
 
 module.exports = {
   createBook,
@@ -429,4 +495,5 @@ module.exports = {
   rentBook,
   returnBook,
   deleteRent,
+  updateRentStatus
 };

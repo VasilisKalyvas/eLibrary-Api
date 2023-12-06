@@ -4,8 +4,7 @@ const prisma = new PrismaClient();
 // Create a new author
 async function createAuthor(req, res) {
   try {
-    const { name } = req.body;
-    console.log(name)
+    const { name } = req.body;    
     const newAuthor = await prisma.author.create({
       data: {
         name,
@@ -23,8 +22,7 @@ async function createAuthor(req, res) {
 async function createAuthors(req, res) {
   try {
     const { authors } = req.body; // Assuming req.body.authors is an array of author objects
-    console.log(authors);
-
+    
     const newAuthors = await prisma.author.createMany({
       data: authors,
     });

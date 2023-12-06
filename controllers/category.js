@@ -22,8 +22,7 @@ async function createCategory(req, res) {
 async function createCategories(req, res) {
   try {
     const { categories } = req.body; // Assuming req.body.authors is an array of author objects
-    console.log(categories);
-
+    
     const newCategories = await prisma.category.createMany({
       data: categories,
     });
