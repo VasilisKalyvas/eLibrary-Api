@@ -59,27 +59,170 @@ const getUserById = async (req, res) => {
   }
 };
 
-
 // Get all rents
+const buildRentQueryOptions = (queryParams) => {
+  const {
+    page = 1,
+    pageSize = 10,
+    userId,
+    bookId,
+    from,
+    until,
+    status,
+    sortBy,
+    sortOrder = 'asc',
+  } = queryParams;
+
+  const filters = {};
+
+  if (userId) {
+    filters.userId = parseInt(userId);
+  }
+
+  if (bookId) {
+    filters.bookId = parseInt(bookId);
+  }
+  
+  if (from && until) {
+    filters.from = { gte: from };
+    filters.until = { lte: until };
+  }
+
+  if (status) {
+    filters.status = status;
+  }
+
+  const orderBy = sortBy ? { [sortBy]: sortOrder } : undefined;
+
+  return {
+    take: parseInt(pageSize),
+    skip: (parseInt(page) - 1) * parseInt(pageSize),
+    include: {
+      book: {
+        include: {
+          author: true,
+          categories: true,
+        },
+      },
+      user: true,
+    },
+    where: filters,
+    orderBy,
+  };
+};
+
+
 const getAllRents = async (req, res) => {
   try {
-    const rentsWithDetails = await prisma.rent.findMany({
-      include: {
-        book: {
-          include: {
-            author: true, // Include author details if needed
-            categories: true, // Include categories details if needed
-          },
-        },
-        user: true, // Include user details
-      },
+    const queryOptions = buildRentQueryOptions(req.query);
+
+    const totalCount = await prisma.rent.count({
+      where: queryOptions.where,
     });
 
-    res.json(rentsWithDetails);
+    const totalPages = Math.ceil(totalCount / queryOptions.take);
+
+    const rentsWithDetails = await prisma.rent.findMany(queryOptions);
+
+    const meta = {
+      currentPage: parseInt(req.query.page || 1),
+      totalPages,
+      totalItems: totalCount,
+    };
+
+    res.json({ meta, data: rentsWithDetails });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 
-module.exports = { getAllUsers, getAllRents, getUserById };
+const buildBookQueryOptions = (queryParams) => {
+  const {
+    page = 1,
+    pageSize = 10,
+    authorId,
+    CategoryId,
+    search,
+    sortBy,
+    sortOrder = 'asc',
+  } = queryParams;
+
+  const filters = {};
+
+  if (authorId) {
+    if (Array.isArray(authorId)) {
+      filters.authorId = { in: authorId.map((id) => parseInt(id)) };
+    } else if (typeof authorId === 'string') {
+      filters.authorId = parseInt(authorId);
+    }
+  }
+  if (CategoryId) {
+    // Assuming a direct relationship between Book and Category
+    filters.categories = { some: { categoryId: parseInt(CategoryId) } };
+  }
+
+  if (search) {
+    filters.OR = [
+      { title: { contains: search } },
+      { description: { contains: search } },
+      { author: {name: { contains: search }} },
+    ];
+  }
+
+  const orderBy = sortBy ? { [sortBy]: sortOrder } : undefined;
+
+  return {
+    take: parseInt(pageSize),
+    skip: (parseInt(page) - 1) * parseInt(pageSize),
+    include: {
+      author: true,
+      categories: {
+        include:{
+          Category: true
+        }
+      },
+      rents: {
+        include: {
+          user: true
+        }
+      },
+      rendedBy: true,
+      activeRent: {
+        include: {
+          user: true
+        }
+      }
+    },
+    where: filters,
+    orderBy,
+  };
+};
+
+const getAllBooks = async (req, res) => {
+  try {
+    const queryOptions = buildBookQueryOptions(req.query);
+
+    const totalCount = await prisma.book.count({
+      where: queryOptions.where,
+    });
+
+    const totalPages = Math.ceil(totalCount / queryOptions.take);
+
+    const books = await prisma.book.findMany(queryOptions);
+
+    const meta = {
+      currentPage: parseInt(req.query.page || 1),
+      totalPages,
+      totalItems: totalCount,
+    };
+
+    res.json({ meta, data: books });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+}
+
+
+module.exports = { getAllUsers, getAllRents, getAllBooks, getUserById };
