@@ -157,6 +157,7 @@ const buildBookQueryOptions = (queryParams) => {
       filters.authorId = parseInt(authorId);
     }
   }
+  
   if (CategoryId) {
     // Assuming a direct relationship between Book and Category
     filters.categories = { some: { categoryId: parseInt(CategoryId) } };
@@ -166,33 +167,35 @@ const buildBookQueryOptions = (queryParams) => {
     filters.OR = [
       { title: { contains: search } },
       { description: { contains: search } },
-      { author: {name: { contains: search }} },
+      { author: { name: { contains: search } } },
     ];
   }
 
   const orderBy = sortBy ? { [sortBy]: sortOrder } : undefined;
 
+  const take = pageSize === '0' ? undefined : parseInt(pageSize);
+
   return {
-    take: parseInt(pageSize),
-    skip: (parseInt(page) - 1) * parseInt(pageSize),
+    take,
+    skip: take ? (parseInt(page) - 1) * take : undefined,
     include: {
       author: true,
       categories: {
-        include:{
-          Category: true
-        }
+        include: {
+          Category: true,
+        },
       },
       rents: {
         include: {
-          user: true
-        }
+          user: true,
+        },
       },
       rendedBy: true,
       activeRent: {
         include: {
-          user: true
-        }
-      }
+          user: true,
+        },
+      },
     },
     where: filters,
     orderBy,
@@ -207,22 +210,28 @@ const getAllBooks = async (req, res) => {
       where: queryOptions.where,
     });
 
-    const totalPages = Math.ceil(totalCount / queryOptions.take);
+    const totalPages = Math.ceil(totalCount / (queryOptions.take || 1));
 
     const books = await prisma.book.findMany(queryOptions);
 
-    const meta = {
-      currentPage: parseInt(req.query.page || 1),
-      totalPages,
-      totalItems: totalCount,
-    };
+    const meta = 
+      req.query.pageSize === '0' 
+      ? 
+        undefined
+      :
+        {
+          currentPage: parseInt(req.query.page || 1),
+          totalPages,
+          totalItems: totalCount,
+        };
 
     res.json({ meta, data: books });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
-}
+};
+
 
 
 module.exports = { getAllUsers, getAllRents, getAllBooks, getUserById };
